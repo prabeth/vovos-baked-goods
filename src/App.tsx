@@ -120,15 +120,20 @@ export default function App() {
     return acc + (price * qty);
   }, 0);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products');
-      const data = await res.json();
-      setProducts(data);
-    } catch (err) {
-      console.error("Failed to fetch products", err);
-    }
-  };
+ const fetchProducts = async () => {
+  try {
+    const res = await fetch('/api/products');
+    const data = await res.json();
+    
+    // AJUSTE PARA POSTGRES:
+    // Se 'data' for um array, usa direto. Se for um objeto com 'rows', usa o rows.
+    const productsList = Array.isArray(data) ? data : (data.rows || []);
+    setProducts(productsList);
+  } catch (err) {
+    console.error("Failed to fetch products", err);
+    setProducts([]); // Evita que o app trave se der erro
+  }
+};
 
   const fetchSettings = async () => {
     try {
