@@ -1,4 +1,46 @@
-import { kv } from '@vercel/kv';
+import { db } from '@vercel/postgres';
+import { v4 as uuidv4 } from 'uuid';
+
+export default async function handler(req: any, res: any) {
+  const client = await db.connect();
+  const { method } = req;
+
+  try {
+    // Cria a tabela de pedidos se ela não existir
+    await client.sql`
+      CREATE TABLE IF NOT EXISTS orders (
+        id UUID PRIMARY KEY,
+        customer_name TEXT,
+        items JSONB,
+        total DECIMAL,
+        status TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    if (method === 'GET') {
+      const { rows } = await client.sql`SELECT * FROM orders ORDER BY created_at DESC`;
+      return res.status(200).json(rows);
+    }
+
+    if (method === 'POST') {
+      const { customerName, items, total } = req.body;
+      const id = uuidv4();
+      await client.sql`
+        INSERT INTO orders (id, customer_name, items, total, status)
+        VALUES (${id}, ${customerName}, ${JSON.stringify(items)}, ${total}, 'pending')
+      `;
+      return res.status(201).json({ id, status: 'pending' });
+    }
+
+    res.status(405).json({ error: 'Método não permitido' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro no servidor' });
+  } finally {
+    client.release();
+  }
+}import { kv } from '@vercel/kv';
 import { v4 as uuidv4 } from 'uuid';
 
 // Tipagem para os pedidos
