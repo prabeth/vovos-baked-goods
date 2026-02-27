@@ -120,18 +120,23 @@ export default function App() {
     return acc + (price * qty);
   }, 0);
 
- const fetchProducts = async () => {
+const fetchProducts = async () => {
   try {
     const res = await fetch('/api/products');
     const data = await res.json();
     
-    // AJUSTE PARA POSTGRES:
-    // Se 'data' for um array, usa direto. Se for um objeto com 'rows', usa o rows.
-    const productsList = Array.isArray(data) ? data : (data.rows || []);
+    // Este ajuste garante que o código entenda tanto o formato do SQLite quanto o do Postgres
+    const productsList = (Array.isArray(data) ? data : (data.rows || [])).map((p: any) => ({
+      id: p.id || p.ID,
+      name: p.name || p.NAME,
+      price: parseFloat(p.price || p.PRICE || 0),
+      category: p.category || p.CATEGORY
+    }));
+
     setProducts(productsList);
   } catch (err) {
-    console.error("Failed to fetch products", err);
-    setProducts([]); // Evita que o app trave se der erro
+    console.error("Erro ao carregar produtos:", err);
+    setProducts([]);
   }
 };
 
