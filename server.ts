@@ -1,4 +1,53 @@
-import express from "express";
+import { kv } from '@vercel/kv';
+import { v4 as uuidv4 } from 'uuid';
+
+// Tipagem para os pedidos
+interface Order {
+  id: string;
+  customerName: string;
+  items: any[];
+  total: number;
+  status: 'pending' | 'completed';
+  createdAt: string;
+}
+
+// Handler para processar requisições (Vercel Serverless)
+export default async function handler(req: any, res: any) {
+  const { method } = req;
+
+  try {
+    if (method === 'GET') {
+      // Busca todos os pedidos no KV da Vercel
+      const keys = await kv.keys('order:*');
+      if (keys.length === 0) return res.status(200).json([]);
+      
+      const orders = await kv.mget(...keys);
+      return res.status(200).json(orders.sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ));
+    }
+
+    if (method === 'POST') {
+      const orderData = req.body;
+      const newOrder: Order = {
+        id: uuidv4(),
+        ...orderData,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+
+      // Salva no banco de dados KV da Vercel
+      await kv.set(`order:${newOrder.id}`, newOrder);
+      return res.status(201).json(newOrder);
+    }
+
+    res.setHeader('Allow', ['GET', 'POST']);
+    res.status(405).end(`Method ${method} Not Allowed`);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao processar pedido' });
+  }
+}import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
